@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Firebase Event Table Unnest Machine</title>
+  <link href="https://unpkg.com/tailwindcss@^1.0/dist/tailwind.min.css" rel="stylesheet">
+  <script src="https://unpkg.com/vue"></script>
+</head>
+<body>
+  <div id="app" class="p-10">
+    <div class="bg-teal-100 m-2 border-t-4 border-blue-500 rounded-b text-blue-700 px-4 py-3 shadow-md" role="alert">
+      <div class="flex">
+        <div class="py-1"><svg class="fill-current h-6 w-6 text-blue-500 mr-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M2.93 17.07A10 10 0 1 1 17.07 2.93 10 10 0 0 1 2.93 17.07zm12.73-1.41A8 8 0 1 0 4.34 4.34a8 8 0 0 0 11.32 11.32zM9 11V9h2v6H9v-4zm0-6h2v2H9V5z"/></svg></div>
+        <div>
+          <p class="font-bold">How to use this tool</p>
+          <div class="text-sm">
+            <p>Enter the dataset of your Firebase export table. Format: `project.dataset`</p>
+            <p>Enter all the events in your Firebase events table.</p>
+            <p>For each event, add parameters and their data types.</p>
+            <p>If you want to filter/select a parameter frequently, you should mark it as a cluster column. </p>
+            <p><i>ABTestName</i> parameter in <i>ABTestAssignment</i> event is a good example for a cluster column. </p>
+            <p>Run "Create Query" once. It will create main tables.</p>
+            <p>Schedule "Daily Update Query" to run every morning. It will add new data and keep event tables up to date.</p>
+            <br>
+          </div>
+          <p class="font-bold">So how does the output look like?</p>
+          <div class="text-sm">
+            <p>Firebase events table is a nested, complex data table. Unnest is a powerful, but an advanced and complex concept.</p>
+            <p>These tables will give you tidy event tables, which makes querying easier.</p>
+            <p>In addition, since you have seperate tables for each event, you'll scan less data and your queries will be much more cheaper.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="rounded shadow-lg p-2 m-2">
+      <div class="mt-4">
+          <input v-model="dataset" class="p-2 m-2 border-2">
+          <button v-on:click="addEvent()" class="p-2 m-2 border-2 rounded border-blue-400 bg-blue-400 text-white">Add New Event</button>
+      </div>
+      <div class="m-4 border rounded" v-for="(event, eventindex) in events">
+        <input v-model="event.name" class="m-4 p-2 border-2 rounded">
+        <button v-on:click="addParameter(eventindex)" class="p-2 border-2 rounded border-blue-400 bg-blue-400 text-white">Add New Parameter</button>
+        <table class="table-auto border-2">
+          <thead>
+            <tr>
+              <th class="px-4 py-2">Parameter Name</th>
+              <th class="px-4 py-2">Parameter Data Type</th>
+              <th class="px-4 py-2">Use as Cluster Column</th>
+            </tr>
+          </thead>
+          <tbody v-for="param in event.parameters">
+            <tr>
+              <td class="border px-4 py-2">
+                <input v-model="param.name" class="bg-white border border-gray-300 rounded-lg py-2 px-4 block w-full">
+              </td>
+              <td class="border px-4 py-2">
+                <select v-model:value="param.type" class="block w-full border border-gray-200 text-gray-700 py-3 px-4 pr-8 rounded leading-tight">
+                  <option v-for="type in parameterTypes" v-bind:value="type.sql">{{ type.name }}</option>
+                </select>
+              </td>
+              <td class="border px-4 py-2">
+                <input type="checkbox" v-model="param.cluster">
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="flex my-4">
+      <div v-for="query in queries" class="w-1/2 mx-2">
+        <div class="box border rounded flex flex-col shadow bg-white">
+          <div class="bg-grey-200 px-3 py-2">
+            <h3 class="text-sm text-grey-darker font-medium">{{ query.name }}</h3>
+          </div>
+          <pre class="px-3 text-sm text-grey-darkest bg-gray-200 overflow-auto">
+            {{ query.query }}
+          </pre>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
