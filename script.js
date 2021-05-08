@@ -40,20 +40,19 @@ function newEvent() {
     renderSelect(dataset) {
       let params = ""
       for (let param of this.parameters) {
-        params += `\n                ${param.render()}`
+        params += `\n      ${param.render()}`
       }
 
-      return `
-            SELECT 
-                user_pseudo_id, dt, ts, app_info.version as app_version, ${params}
-            FROM \`${dataset}.events_clustered\`
-            WHERE event_name = '${this.name}' `;
+      return `SELECT 
+      user_pseudo_id, dt, ts, app_info.version as app_version, ${params}
+  FROM \`${dataset}.events_clustered\`
+  WHERE event_name = '${this.name}' `;
     },
     renderCreate(dataset) {
       return `       
-            CREATE TABLE \`${dataset}.${this.name.toLowerCase()}\`
-            PARTITION BY dt ${this.renderCluster()} AS 
-            ${this.renderSelect(dataset)} ;
+  CREATE TABLE \`${dataset}.${this.name.toLowerCase()}\`
+  PARTITION BY dt ${this.renderCluster()} AS 
+  ${this.renderSelect(dataset)} ;
             `;
     },
     renderInsert(dataset) {
@@ -61,41 +60,15 @@ function newEvent() {
       const param_names = this.parameters.map(x => x.name).join(', ')
 
       return `
-            DELETE FROM \`${dataset}.${this.name.toLowerCase()}\` WHERE dt = ${date};
-            INSERT INTO \`${dataset}.${this.name.toLowerCase()}\`
-            (user_pseudo_id, dt, ts, app_version, ${param_names}) 
-            ${this.renderSelect(dataset)}
-            AND dt = ${date};
+  DELETE FROM \`${dataset}.${this.name.toLowerCase()}\` WHERE dt = run_dt;
+  INSERT INTO \`${dataset}.${this.name.toLowerCase()}\`
+  (user_pseudo_id, dt, ts, app_version, ${param_names}) 
+  ${this.renderSelect(dataset)}
+  AND dt = run_dt;
             `
     }
   }
 }
-
-Vue.directive('highlightjs', {
-  deep: true,
-  bind: function(el, binding) {
-    // on first bind, highlight all targets
-    let targets = el.querySelectorAll('code')
-    targets.forEach((target) => {
-      // if a value is directly assigned to the directive, use this
-      // instead of the element content.
-      if (binding.value) {
-        target.textContent = binding.value
-      }
-      hljs.highlightBlock(target)
-    })
-  },
-  componentUpdated: function(el, binding) {
-    // after an update, re-fill the content and then highlight
-    let targets = el.querySelectorAll('code')
-    targets.forEach((target) => {
-      if (binding.value) {
-        target.textContent = binding.value
-        hljs.highlightBlock(target)
-      }
-    })
-  }
-})
 
 var app = new Vue({
   el: '#app',
@@ -114,44 +87,45 @@ var app = new Vue({
   },
   computed: {
     segmentedSelect() {
-      return `
-            SELECT 
-                PARSE_DATE('%Y%m%d', event_date) AS dt, 
-                event_name, 
-                event_params, 
-                TIMESTAMP_MICROS(event_timestamp) as ts, 
-                TIMESTAMP_MICROS(event_previous_timestamp) as event_previous_timestamp, 
-                event_value_in_usd, 
-                event_server_timestamp_offset, 
-                user_id, 
-                user_pseudo_id,
-                TIMESTAMP_MICROS(user_first_touch_timestamp) AS user_first_touch_timestamp, 
-                user_properties, 
-                user_ltv, 
-                device, 
-                geo, 
-                app_info, 
-                traffic_source, 
-                platform
-            FROM \`${this.dataset}.events_2*\``;
+      return `SELECT 
+    PARSE_DATE('%Y%m%d', event_date) AS dt, 
+    event_name, 
+    event_params, 
+    TIMESTAMP_MICROS(event_timestamp) as ts, 
+    TIMESTAMP_MICROS(event_previous_timestamp) as event_previous_timestamp, 
+    event_value_in_usd, 
+    event_server_timestamp_offset, 
+    user_id, 
+    user_pseudo_id,
+    TIMESTAMP_MICROS(user_first_touch_timestamp) AS user_first_touch_timestamp, 
+    user_properties, 
+    user_ltv, 
+    device, 
+    geo, 
+    app_info, 
+    traffic_source, 
+    platform
+  FROM \`${this.dataset}.events_*\``;
     },
     segmentedCreate() {
       return `       
-            CREATE TABLE \`${this.dataset}.events_clustered\`
-            PARTITION BY dt CLUSTER BY event_name AS 
-            ${this.segmentedSelect} ;
+  CREATE TABLE \`${this.dataset}.events_clustered\`
+  PARTITION BY dt CLUSTER BY event_name AS 
+  ${this.segmentedSelect} ;
             `;
     },
     segmentedInsert() {
       const date = "DATE_SUB(CURRENT_DATE, interval 1 day)";
       return `
-            DELETE FROM \`${this.dataset}.events_clustered\` WHERE dt = ${date};
-            INSERT INTO \`${this.dataset}.events_clustered\`
-            (dt, event_name, event_params, ts, event_previous_timestamp, event_value_in_usd, 
-            event_server_timestamp_offset, user_id, user_pseudo_id, user_first_touch_timestamp, user_properties, 
-            user_ltv, device, geo, app_info, traffic_source, platform) 
-            ${this.segmentedSelect}
-            WHERE _TABLE_SUFFIX = REGEXP_REPLACE(FORMAT_DATE('%Y%m%d', ${date}), '^.', ''); 
+  DECLARE run_dt DATE DEFAULT DATE_SUB(CURRENT_DATE, interval 1 day);
+        
+  DELETE FROM \`${this.dataset}.events_clustered\` WHERE dt = run_dt;
+  INSERT INTO \`${this.dataset}.events_clustered\`
+  (dt, event_name, event_params, ts, event_previous_timestamp, event_value_in_usd, 
+  event_server_timestamp_offset, user_id, user_pseudo_id, user_first_touch_timestamp, user_properties, 
+  user_ltv, device, geo, app_info, traffic_source, platform) 
+  ${this.segmentedSelect}
+  WHERE _TABLE_SUFFIX = REGEXP_REPLACE(FORMAT_DATE('%Y%m%d', run_dt), '^.', ''); 
             `
     },
     createAll() {
@@ -160,7 +134,7 @@ var app = new Vue({
         sql += event.renderCreate(this.dataset);
       }
 
-      return sql.split('            ').join('');
+      return sql;
     },
     insertAll() {
       let sql = this.segmentedInsert;
@@ -168,7 +142,7 @@ var app = new Vue({
         sql += event.renderInsert(this.dataset);
       }
 
-      return sql.split('            ').join('');
+      return sql;
     },
     queries() {
       return [
